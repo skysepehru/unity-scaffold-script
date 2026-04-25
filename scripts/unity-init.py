@@ -480,6 +480,9 @@ def _cleanup_setup_script(project_dir: str) -> None:
     editor_dir = os.path.dirname(setup_path)
     if os.path.isdir(editor_dir) and not os.listdir(editor_dir):
         os.rmdir(editor_dir)
+    editor_meta = editor_dir + ".meta"
+    if os.path.exists(editor_meta):
+        os.remove(editor_meta)
 
 
 def _run_unity_phase(project_dir: str, editor_path: str, phase: str,
