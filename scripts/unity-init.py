@@ -289,6 +289,8 @@ def step_git_init(project_dir: str, dry_run: bool) -> None:
     else:
         run_cmd(["git", "init"], "git-init", cwd=project_dir)
 
+
+def step_gitignore(project_dir: str, dry_run: bool) -> None:
     gitignore_path = os.path.join(project_dir, ".gitignore")
     if os.path.exists(gitignore_path):
         print("  .gitignore already exists, skipping")
@@ -624,7 +626,12 @@ def gather_config_interactive() -> dict:
     tests = prompt_yes_no("Include test assemblies?", default=True)
 
     unity_mcp = prompt_yes_no("Install Unity-MCP? (github.com/IvanMurzak/Unity-MCP)", default=False)
-    claude_gitignore = prompt_yes_no("Add Claude Code entries to .gitignore?", default=False)
+
+    print()
+    add_gitignore = prompt_yes_no("Add Unity .gitignore?", default=True)
+    claude_gitignore = False
+    if add_gitignore:
+        claude_gitignore = prompt_yes_no("Add Claude Code entries to .gitignore?", default=False)
 
     print()
     init_git = prompt_yes_no("Initialize a Git repo?", default=True)
@@ -640,6 +647,7 @@ def gather_config_interactive() -> dict:
         "zenject": zenject,
         "tests": tests,
         "unity_mcp": unity_mcp,
+        "add_gitignore": add_gitignore,
         "claude_gitignore": claude_gitignore,
         "init_git": init_git,
         "create_github": create_github,
@@ -658,20 +666,25 @@ def run_setup(config: dict, *, editor_version=None, dry_run=False,
     print("\n--- Project Folder ---")
     project_dir = step_confirm_folder(config["project_name"])
 
-    # 1. Git
+    # 1. Gitignore
+    if config.get("add_gitignore", True):
+        print("\n--- Gitignore ---")
+        step_gitignore(project_dir, dry_run)
+        if config["claude_gitignore"]:
+            step_claude_gitignore(project_dir, dry_run)
+
+    # 2. Git
     use_git = config.get("init_git", True)
     if use_git:
         print("\n--- Git ---")
         step_git_init(project_dir, dry_run)
-        if config["claude_gitignore"]:
-            step_claude_gitignore(project_dir, dry_run)
         step_git_commit(project_dir, "Initial commit", dry_run)
 
         if config["create_github"]:
             print("\n--- GitHub ---")
             step_github_repo(project_dir, dry_run)
 
-    # 2. Unity project
+    # 3. Unity project
     version, editor_path = pick_unity_editor(editor_version)
 
     if not skip_unity_create:
@@ -680,7 +693,7 @@ def run_setup(config: dict, *, editor_version=None, dry_run=False,
         if use_git:
             step_git_commit(project_dir, "Create Unity project", dry_run)
 
-    # 3. Packages (OpenUPM — UniTask, Zenject)
+    # 4. Packages (OpenUPM — UniTask, Zenject)
     if not skip_packages:
         print("\n--- Packages (OpenUPM) ---")
         packages = ["com.cysharp.unitask"]
@@ -692,7 +705,7 @@ def run_setup(config: dict, *, editor_version=None, dry_run=False,
         if use_git:
             step_git_commit(project_dir, "Install packages", dry_run)
 
-    # 4. Scaffold
+    # 5. Scaffold
     print("\n--- Scaffold ---")
     step_scaffold(
         project_dir, config["project_name"], config["company"],
@@ -701,21 +714,21 @@ def run_setup(config: dict, *, editor_version=None, dry_run=False,
     if use_git:
         step_git_commit(project_dir, "Scaffold project structure", dry_run)
 
-    # 5. Unity settings (batchmode: PlayerSettings, Input System, Rider, URP)
+    # 6. Unity settings (batchmode: PlayerSettings, Input System, Rider, URP)
     print("\n--- Unity Settings ---")
     step_unity_settings(project_dir, editor_path, config, dry_run)
 
-    # 6. Clean up Unity defaults
+    # 7. Clean up Unity defaults
     print("\n--- Cleanup ---")
     step_cleanup_defaults(project_dir, dry_run)
     if use_git:
         step_git_commit(project_dir, "Configure Unity settings", dry_run)
 
-    # 7. Open Unity
+    # 8. Open Unity
     print("\n--- Open Unity ---")
     step_unity_open(project_dir, editor_path, dry_run)
 
-    # 8. Push
+    # 9. Push
     if use_git and config["create_github"]:
         print("\n--- Push ---")
         step_git_push(project_dir, dry_run)
@@ -745,6 +758,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-tests", dest="tests", action="store_false")
     parser.add_argument("--unity-mcp", action="store_true", default=None)
     parser.add_argument("--no-unity-mcp", dest="unity_mcp", action="store_false")
+    parser.add_argument("--gitignore", action="store_true", default=None)
+    parser.add_argument("--no-gitignore", dest="gitignore", action="store_false")
     parser.add_argument("--claude-gitignore", action="store_true", default=None)
     parser.add_argument("--no-claude-gitignore", dest="claude_gitignore", action="store_false")
     parser.add_argument("--git", action="store_true", default=None)
@@ -772,6 +787,7 @@ def main() -> int:
             "zenject": args.zenject if args.zenject is not None else False,
             "tests": args.tests if args.tests is not None else True,
             "unity_mcp": args.unity_mcp if args.unity_mcp is not None else False,
+            "add_gitignore": args.gitignore if args.gitignore is not None else True,
             "claude_gitignore": args.claude_gitignore if args.claude_gitignore is not None else False,
             "init_git": args.git if args.git is not None else True,
             "create_github": args.github if args.github is not None else False,
@@ -790,6 +806,8 @@ def main() -> int:
             config["tests"] = args.tests
         if args.unity_mcp is not None:
             config["unity_mcp"] = args.unity_mcp
+        if args.gitignore is not None:
+            config["add_gitignore"] = args.gitignore
         if args.claude_gitignore is not None:
             config["claude_gitignore"] = args.claude_gitignore
         if args.git is not None:
