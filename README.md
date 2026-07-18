@@ -66,3 +66,7 @@ Add to your `.zshrc` for a quick `unity-create` command:
 ```bash
 alias unity-create="python3 /path/to/unity-scaffold-script/scripts/unity-init.py"
 ```
+
+## License
+
+[MIT](LICENSE)
